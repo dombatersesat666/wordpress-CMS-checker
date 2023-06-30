@@ -3,9 +3,12 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning
+                                           
 def detect_wordpress_cms(url):
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "http://" + url
+
     base_url = url.rstrip('/')
     endpoints = [
         base_url,
