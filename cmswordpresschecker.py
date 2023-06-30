@@ -1,81 +1,47 @@
-import requests
 import re
-from concurrent.futures import ThreadPoolExecutor
+import requests
+from multiprocessing.dummy import Pool as ThreadPool
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-                                           
-def detect_wordpress_cms(url):
-    if not url.startswith("http://") and not url.startswith("https://"):
-        url = "http://" + url
 
-    base_url = url.rstrip('/')
-    endpoints = [
-        base_url,
-        f"{base_url}/wp-admin/install.php",
-        f"{base_url}/feed/",
-        f"{base_url}/?feed=rss2"
+def check_wordpress(domain):
+    urls = [
+        f"http://{domain}",
+        f"http://{domain}/wp-admin/install.php",
+        f"http://{domain}/feed/"
     ]
-
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.16299'
-    }
-
-    for endpoint in endpoints:
+    for url in urls:
         try:
-            response = requests.get(endpoint, headers=headers, allow_redirects=True, verify=False)
+            response = requests.get(url, allow_redirects=True, verify=False)
             if response.status_code == 200:
-                if has_wordpress_signature(response.text):
-                    return (url, True)
+                content = response.text
+                if re.search(r'<generator>https?:\/\/wordpress\.org.*</generator>', content) or \
+                        re.search(r'wp-login.php', content) or \
+                        re.search(r'\/wp-content/themes\/', content) or \
+                        re.search(r'\/wp-includes\/', content) or \
+                        re.search(r'name="generator" content="wordpress', content) or \
+                        re.search(r'<link[^>]+s\d+\.wp\.com', content) or \
+                        re.search(r'<!-- This site is optimized with the Yoast (?:WordPress )?SEO plugin v([\d.]+) -', content) or \
+                        re.search(r'<!--[^>]+WP-Super-Cache', content):
+                    print(f"Domain WordPress ditemukan: {domain}")
+                    with open("wordpress.txt", "a") as file:
+                        file.write(f"{domain}\n")
+                    return domain
         except requests.exceptions.RequestException:
             pass
-    
-    return (url, False)
+    return None
 
-def has_wordpress_signature(content):
-    signatures = [
-        r'<generator>https?:\/\/wordpress\.org.*</generator>',
-        r'wp-login.php',
-        r'\/wp-content/themes\/',
-        r'\/wp-includes\/',
-        r'name="generator" content="wordpress',
-        r'<link[^>]+s\d+\.wp\.com',
-        r'<!-- This site is optimized with the Yoast (?:WordPress )?SEO plugin v([\d.]+) -',
-        r'<!--[^>]+WP-Super-Cache'
-    ]
+if __name__ == "__main__":
+    with open("list.txt", "r") as file:
+        domains = file.read().splitlines()
 
-    for signature in signatures:
-        if re.search(signature, content):
-            return True
-    
-    return False
+    pool = ThreadPool(50)
+    results = pool.map(check_wordpress, domains)
+    pool.close()
+    pool.join()
 
-# Read the list of URLs from list.txt file
-with open('list.txt', 'r') as file:
-    urls = file.read().splitlines()
+    wordpress_domains = [domain for domain in results if domain is not None]
 
-def worker(url):
-    result = detect_wordpress_cms(url)
-    if result[1]:
-        return f"WordPress CMS detected. URL: {result[0]}"
-    else:
-        return f"Not a WordPress CMS. URL: {result[0]}"
 
-# Set the maximum number of threads
-max_threads = 50
-
-# Create a ThreadPoolExecutor
-with ThreadPoolExecutor(max_workers=max_threads) as executor:
-    results = executor.map(worker, urls)
-
-# Save the results to wordpress.txt
-with open('wordpress.txt', 'w') as file:
-    for result in results:
-        if result.startswith("WordPress CMS"):
-            file.write(result.split("URL: ")[1] + '\n')
-
-# Print the results
-for result in results:
-    print(result)
-
-print("WordPress CMS detection completed.")
+    print("Pengecekan domain WordPress telah selesai.")
