@@ -1,6 +1,6 @@
 import requests
 import re
-import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 
 def detect_wordpress_cms(url):
     base_url = url.rstrip('/')
@@ -11,13 +11,20 @@ def detect_wordpress_cms(url):
         f"{base_url}/?feed=rss2"
     ]
 
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.16299'
+    }
+
     for endpoint in endpoints:
-        response = requests.get(endpoint, allow_redirects=True)
-        if response.status_code == 200:
-            if has_wordpress_signature(response.text):
-                return True
+        try:
+            response = requests.get(endpoint, headers=headers, allow_redirects=True, verify=False)
+            if response.status_code == 200:
+                if has_wordpress_signature(response.text):
+                    return (url, True)
+        except requests.exceptions.RequestException:
+            pass
     
-    return False
+    return (url, False)
 
 def has_wordpress_signature(content):
     signatures = [
@@ -37,21 +44,32 @@ def has_wordpress_signature(content):
     
     return False
 
-# Baca daftar URL dari file list.txt
+# Read the list of URLs from list.txt file
 with open('list.txt', 'r') as file:
     urls = file.read().splitlines()
 
-# Fungsi worker untuk setiap thread
 def worker(url):
-    if detect_wordpress_cms(url):
-        with open('wordpress.txt', 'a') as file:
-            file.write(f"{url}\n")
-        print(f"WordPress CMS detected. URL: {url}")
+    result = detect_wordpress_cms(url)
+    if result[1]:
+        return f"WordPress CMS detected. URL: {result[0]}"
     else:
-        print(f"Not a WordPress CMS. URL: {url}")
+        return f"Not a WordPress CMS. URL: {result[0]}"
 
-# Lakukan deteksi CMS WordPress dengan menggunakan thread
-with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-    executor.map(worker, urls)
+# Set the maximum number of threads
+max_threads = 50
 
-print("Deteksi CMS WordPress selesai.")
+# Create a ThreadPoolExecutor
+with ThreadPoolExecutor(max_workers=max_threads) as executor:
+    results = executor.map(worker, urls)
+
+# Save the results to wordpress.txt
+with open('wordpress.txt', 'w') as file:
+    for result in results:
+        if result.startswith("WordPress CMS"):
+            file.write(result.split("URL: ")[1] + '\n')
+
+# Print the results
+for result in results:
+    print(result)
+
+print("WordPress CMS detection completed.")
