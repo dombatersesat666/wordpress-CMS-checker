@@ -1,6 +1,9 @@
 import requests
 import re
 from concurrent.futures import ThreadPoolExecutor
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 def detect_wordpress_cms(url):
     base_url = url.rstrip('/')
