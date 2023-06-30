@@ -1,65 +1,57 @@
-import os, requests, time
-from multiprocessing.dummy import Pool as ThreadPool
-from multiprocessing import Pool
-import threading
-import sys
-from colorama import Fore, Style
+import requests
+import re
+import concurrent.futures
 
+def detect_wordpress_cms(url):
+    base_url = url.rstrip('/')
+    endpoints = [
+        base_url,
+        f"{base_url}/wp-admin/install.php",
+        f"{base_url}/feed/",
+        f"{base_url}/?feed=rss2"
+    ]
 
-def screen_clear():
-    _ = os.system('clear')
+    for endpoint in endpoints:
+        response = requests.get(endpoint, allow_redirects=True)
+        if response.status_code == 200:
+            if has_wordpress_signature(response.text):
+                return True
+    
+    return False
 
+def has_wordpress_signature(content):
+    signatures = [
+        r'<generator>https?:\/\/wordpress\.org.*</generator>',
+        r'wp-login.php',
+        r'\/wp-content/themes\/',
+        r'\/wp-includes\/',
+        r'name="generator" content="wordpress',
+        r'<link[^>]+s\d+\.wp\.com',
+        r'<!-- This site is optimized with the Yoast (?:WordPress )?SEO plugin v([\d.]+) -',
+        r'<!--[^>]+WP-Super-Cache'
+    ]
 
-bl = Fore.BLUE
-wh = Fore.WHITE
-gr = Fore.GREEN
-red = Fore.RED
-res = Style.RESET_ALL
-yl = Fore.YELLOW
+    for signature in signatures:
+        if re.search(signature, content):
+            return True
+    
+    return False
 
-headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:77.0) Gecko/20100101 Firefox/77.0'}
+# Baca daftar URL dari file list.txt
+with open('list.txt', 'r') as file:
+    urls = file.read().splitlines()
 
-def wpcheck (star):
-    if "://" in star:
-      star = star
+# Fungsi worker untuk setiap thread
+def worker(url):
+    if detect_wordpress_cms(url):
+        with open('wordpress.txt', 'a') as file:
+            file.write(f"{url}\n")
+        print(f"WordPress CMS detected. URL: {url}")
     else:
-      star = "http://" + star
-    star = star.replace('\n', '').replace('\r', '')
-    url = star + "/wp-content/"
-    check = requests.get(url, headers=headers, timeout=3)
-    try:
-        if check.status_code == 200:
-            print(f"Wordpress {gr}OK{res} => {star}\n")
-            mrigel = open("Wordpress.txt", "a")
-            mrigel.write(f'{star}\n')
-        else:
-            print(f"{red}Not{res} Wordpress => {star}\n")
-    except:
-        pass
+        print(f"Not a WordPress CMS. URL: {url}")
 
+# Lakukan deteksi CMS WordPress dengan menggunakan thread
+with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+    executor.map(worker, urls)
 
-def filter(star):
-    try:
-       wpcheck(star)
-    except:
-       pass
-
-
-def main():
-    print(f'''    
-   SIMPLE WORDPRES CMS        
-    By :DOMBTERSEST666   
-    ''')
-    list = input(f"{gr}Give Me Your List.txt/{red}> {gr}><:{res} ")
-    star = open(list, 'r').readlines()
-    try:
-       ThreadPool = Pool(50)
-       ThreadPool.map(filter, star)
-       ThreadPool.close()
-       ThreadPool.join()
-    except:
-       pass
-       
-if __name__ == '__main__':
-    screen_clear()
-    main()
+print("Deteksi CMS WordPress selesai.")
