@@ -25,23 +25,26 @@ def check_wordpress(domain):
                         re.search(r'<!-- This site is optimized with the Yoast (?:WordPress )?SEO plugin v([\d.]+) -', content) or \
                         re.search(r'<!--[^>]+WP-Super-Cache', content):
                     print(f"Domain WordPress ditemukan: {domain}")
-                    with open("wordpress.txt", "a") as file:
+                    with open("wordpress-2.txt", "a") as file:
                         file.write(f"{domain}\n")
                     return domain
-        except requests.exceptions.RequestException:
+        except (requests.exceptions.RequestException, requests.exceptions.Timeout):
             pass
     return None
 
 if __name__ == "__main__":
-    with open("list.txt", "r") as file:
+    filename = input("Masukkan nama file: ")
+    num_threads = int(input("Masukkan jumlah thread: "))
+
+    with open(filename, "r") as file:
         domains = file.read().splitlines()
 
-    pool = ThreadPool(50)
+    pool = ThreadPool(num_threads)
     results = pool.map(check_wordpress, domains)
     pool.close()
     pool.join()
 
     wordpress_domains = [domain for domain in results if domain is not None]
 
-
+    
     print("Pengecekan domain WordPress telah selesai.")
