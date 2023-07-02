@@ -13,7 +13,7 @@ def check_wordpress(domain):
     ]
     for url in urls:
         try:
-            response = requests.get(url, allow_redirects=True, verify=False)
+            response = requests.get(url, allow_redirects=True, verify=False, timeout=5)
             if response.status_code == 200:
                 content = response.text
                 if re.search(r'<generator>https?:\/\/wordpress\.org.*</generator>', content) or \
