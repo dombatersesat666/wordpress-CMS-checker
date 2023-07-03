@@ -25,7 +25,7 @@ def check_wordpress(domain):
                         re.search(r'<!-- This site is optimized with the Yoast (?:WordPress )?SEO plugin v([\d.]+) -', content) or \
                         re.search(r'<!--[^>]+WP-Super-Cache', content):
                     print(f"Domain WordPress ditemukan: {domain}")
-                    with open("wordpress-2.txt", "a") as file:
+                    with open("wordpress.txt", "a") as file:
                         file.write(f"{domain}\n")
                     return domain
         except (requests.exceptions.RequestException, requests.exceptions.Timeout):
