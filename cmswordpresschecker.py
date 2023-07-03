@@ -36,7 +36,7 @@ if __name__ == "__main__":
     filename = input("Masukkan nama file: ")
     num_threads = int(input("Masukkan jumlah thread: "))
 
-    with open(filename, "r") as file:
+    with open(filename, "r", errors='ignore') as file:
         domains = file.read().splitlines()
 
     pool = ThreadPool(num_threads)
